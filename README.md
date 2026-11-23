@@ -81,5 +81,22 @@ npm run dev
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
 
+## 目录发布治理（目录预览 → 签发 → 消费）
+
+发布特征目录前的治理链路，领域逻辑在 `backend/app/services/catalog_release.py`，
+接口前缀 `/api/catalog-release`（固定前缀，注册在动态资源路由之前）：
+
+- `POST /catalogs/{id}/previews` 新增目录预览：冻结一份完整成员与血缘边快照，
+  生成目录影响明细——直接变更 / 待核查的下游 / 仅作来源证据的上游三档呈现；
+  同一节点被多条路径抵达只计一次但保留全部路径；遇环列出环段经过的边并停止扩展。
+- `POST /previews/{id}/audit-batches` 治理审计开待审清单：每个下游节点一个待审身份，
+  附需要核查的血缘路径；上游证据不产生待审项；审计批只引用该次预览的快照。
+- `POST /previews/{id}/publish` 签发人员提交整笔发布动作（`action_key` 幂等，
+  只提交一次）：按成员独立放行——自身签字齐全即交付，不为无关待签成员设屏障；
+  补签后重新签发只交付实际新增范围，不重复交付。
+- `GET /consumer/features/{f}` 目录使用者按实际签发结果看到 可用 / 待交付（带原因）/ 未发布。
+
+测试：`cd backend && .venv/bin/python -m pytest`（`tests/test_catalog_release*.py`）。
+
 领域：数据工程
 子方向：数仓与数据湖
